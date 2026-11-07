@@ -1,75 +1,86 @@
-# Cloudflare Turnstile → Automatic Telegram notification → Redirect
+# Visitor → Telegram notification → loading animation → redirect
 
-Vercel-ready static HTML and plain JavaScript functions, **no React/TSX, no npm dependencies**.
+A small Vercel project using static HTML/CSS/JavaScript and Node.js serverless functions; no Next.js, React, TSX, VPS or database is required.
 
-## Behavior
+## How it behaves
 
-1. A visitor opens the deployed Vercel verification page; the polished verification page loads Cloudflare Turnstile.
-2. On successful challenge, the frontend submits the token to `/api/verify`.
-3. The backend validates the token with Cloudflare **Siteverify** (checks both `success` and the hostname inferred from the request).
-4. After approval, the server reads available IP/approximate geo from **Vercel-provided request headers** plus limited browser metadata. The page **discloses this automatic transmission**.
-5. The server sends the structured HTML notification to Telegram, then returns a fixed destination URL.
-6. The browser displays the success/loading animation for ~2.3 seconds and navigates to `DEST_URL`.
+1. Visitor opens the page and sees a transparent privacy notice and a polished loading screen.
+2. The browser calls `/api/config` to get the **fixed** destination URL and the optional Turnstile mode.
+3. **By default Turnstile is OFF**. The page immediately POSTs to `/api/verify` without any click or challenge.
+4. The backend reads the incoming request's public IP (as provided by Vercel), approximate Vercel region/country/city headers, and browser metadata. It tries to send a formatted Telegram message using **server-side bot credentials**.
+5. A loading animation is shown for at least ~2.3 seconds while the call runs. Then the browser redirects to `DEST_URL`.
+6. If Telegram is unavailable, the redirect still happens. If Turnstile is configured but fails, the redirect still happens. These are **best-effort** notifications, not guaranteed delivery.
 
-No phone-number form, device GPS, visitor contact details, `GATE_ORIGIN`, or `TICKET_SECRET` is used. Turnstile is anti-bot protection, **not proof of human identity**.
+No phone number, SIM information, contacts or precise GPS are accessed. Network connection type and browser language/time zone may be unavailable. IP-based location is approximate. The page includes a visitor-facing disclosure. You must have an appropriate lawful basis and privacy notice for forwarding personal data to Telegram; assess applicable privacy rules and Telegram as a third-party recipient before deploying.
 
-## Files
+## Configuration
 
-```
-public/index.html      Styled verification page (HTML, CSS, browser JS)
-api/config.js          Public site key response
-api/verify.js          Vercel Node.js function entry point
-lib/verification.js    Siteverify, metadata and Telegram delivery
-.env.example           Environment variable template
-vercel.json            Vercel static + function configuration
-package.json           JS ES-module declaration
+Set these variables in Vercel's **Project → Settings → Environment Variables**:
+
+```dotenv
+DEST_URL=https://yourdestination.example/
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_or_group_id
 ```
 
-## Deploy on Vercel
+The destination must be an HTTPS URL. It is set by the operator, not by a visitor, to avoid open redirects. **There is no `GATE_ORIGIN` or `TICKET_SECRET`.** The incoming hostname is determined from the request.
 
-1. Unzip this project and upload the **contents** to a GitHub repository, or deploy using the Vercel CLI from this folder (`npx vercel` then `npx vercel --prod`).
-2. Import the repository into Vercel. Select **Framework Preset: Other**; no framework build is needed. Use the checked-in `vercel.json` (static folder: `public`, functions: root `api/`).
-3. In Vercel **Project → Settings → Environment Variables**, add:
-   - `DEST_URL`: the full **HTTPS** destination URL (e.g. `https://my-company.com/welcome`).
-   - `TURNSTILE_SITE_KEY`: Cloudflare widget's public site key.
-   - `TURNSTILE_SECRET`: Cloudflare widget's private secret.
-   - `TELEGRAM_BOT_TOKEN`: BotFather token (secret).
-   - `TELEGRAM_CHAT_ID`: your private chat or group chat ID.
-4. Deploy/redeploy to apply environment variables. Configure the site widget in Cloudflare Turnstile to allow the **verification page's hostname**. If using the default Vercel domain, use its exact hostname. Custom domains are supported.
-5. Start a conversation with the bot in Telegram or invite it to your group and give it appropriate posting rights.
-6. Visit your verification site and complete a challenge. Verify that a Telegram notification is received and the destination opens.
+### Optional Cloudflare Turnstile (not required)
 
-**Caution:** Add each hostname you use to Cloudflare Turnstile's allowed hostnames. Preview deployments on random `*.vercel.app` hostnames are not automatically allowed; the hostname is detected automatically but must still be permitted by Turnstile.
+Leave it disabled for automatic visits:
 
-## Is `TICKET_SECRET` needed?
+```dotenv
+TURNSTILE_MODE=off
+```
 
-No. The prior version issued a signed ticket for a destination-site form. This version sends Telegram notification during verification and redirects directly, so the destination does not validate any ticket.
+If you choose to show an **optional** Turnstile widget, set:
 
-## Data collected
+```dotenv
+TURNSTILE_MODE=optional
+TURNSTILE_SITE_KEY=your_site_key
+TURNSTILE_SECRET=your_secret_key
+```
 
-- Public client IP: Vercel's `x-forwarded-for` header (Vercel overwrites it to reduce spoofing).
-- Country/city/region: Vercel geolocation request headers, which are **estimates from IP**, sometimes inaccurate if on VPN/mobile network.
-- Browser/OS: user-agent **heuristics**, not guaranteed correct.
-- Browser language, timezone, and rough network type, **if supported**.
-- Verification timestamp (UTC).
+With `optional` and *both* keys, visitors may see the widget briefly. Successful checks are recorded as `Passed`; failed, expired, or unavailable checks are marked accordingly. The page continues automatically after up to ~4 seconds without requiring a click; therefore **this mode is NOT a security barrier**. For actual bot protection you would need a separate enforcement mode, rate-limiting or Vercel WAF.
 
-**Cannot access silently:** phone number, SIM/telecom subscriber name, GPS coordinates, exact street address, contacts. The code does not attempt any of these.
+Providing keys without `TURNSTILE_MODE=optional` does nothing, and removing either key disables the optional widget without breaking the website.
 
-Vercel may not provide geo information when testing locally; `Unavailable` is expected. If placing another proxy such as Cloudflare in front of Vercel, verify that the IP corresponds to the real visitor rather than a proxy IP.
+## Deploy to Vercel
 
-## Security / privacy
+1. Push the **contents** of this folder to a GitHub repository.
+2. In Vercel, choose **Add New → Project**, import that repository, and use **Framework Preset: Other** (no build command).
+3. Configure `DEST_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` as project environment variables. Leave Turnstile keys unset unless you actually want the optional widget.
+4. Deploy and visit the generated `*.vercel.app` domain. You can later connect a custom domain, without adding any gate URL env setting.
+5. Check that Telegram received the visitor notification and that the destination opened.
 
-- Cloudflare Turnstile tokens are verified on the **server**, are single-use, and expire. `result.hostname` must equal the hostname of the incoming request.
-- Browser requests must originate from the same verification-site origin, the destination is fixed in server config, and bot credentials are stored only in Vercel environment variables.
-- Telegram text values are HTML-escaped. Requests and responses are not intentionally cached.
-- If Telegram delivery fails, the page offers the visitor a fresh verification attempt rather than claiming a notification was sent.
-- The gate page prominently discloses metadata sharing. Ensure your own privacy notice, retention policy, and lawful basis satisfy applicable law, especially if sending IP addresses to Telegram/third parties. No phone or GPS is collected.
-- Use Vercel/Cloudflare WAF or rate limiting if abuse or traffic volume increases. For strong guaranteed delivery, use a durable queue with retries; synchronous Telegram delivery can fail if Telegram is unavailable.
+To create a Telegram bot, start a conversation with `@BotFather` in Telegram and use the token it gives you; obtain the destination chat ID separately. Keep the bot token secret and do not commit it to Git.
 
-## Test locally (Node 20+)
+## Project files
+
+```text
+public/index.html       Static website, animated loading and redirect UI
+api/config.js           Public, read-only frontend configuration endpoint
+api/verify.js           Same-origin visit processing endpoint
+lib/verification.js     Optional check, metadata formatting, Telegram delivery
+vercel.json             Static assets + serverless function configuration
+.env.example            Configuration reference
+package.json            Node.js test script
+test/verify.test.js      Automated tests
+```
+
+## Tests
 
 ```bash
 npm test
 ```
 
-To actually preview full Vercel routing locally, link the project with Vercel and run `npx vercel dev`; supply environment variables via Vercel settings or your local development environment. Local Siteverify with real Turnstile site keys requires a configured allowed hostname; see https://developers.cloudflare.com/turnstile/troubleshooting/testing/ .
+Tests mock Telegram/Cloudflare HTTP responses. They are **not** proof of a deployed site or live notification delivery.
+
+## Operational considerations
+
+- **Telegram is best effort**: if the bot token is invalid, Telegram fails, or the request times out, visitors still redirect. This intentionally prioritizes visitor navigation over notification delivery.
+- **No Turnstile by default**: visitors and automated clients can trigger the endpoint. Add Vercel WAF/edge rate-limiting if you expect substantial or abusive traffic; an `Origin` check alone is insufficient against scripted clients.
+- **Privacy**: an IP address and detailed browser metadata can be personal data. Do not use the gateway for covert tracking; provide an accessible privacy policy, a lawful basis, appropriate retention, and disclosure of transfers to Telegram.
+- **Some metadata can be missing** due to device restrictions, proxies, VPNs, or Vercel's available geolocation headers.
+- **Do not blindly trust externally supplied forwarding headers** if porting this code to another hosting provider. The IP extraction assumes Vercel's proxy handling.
+- Set reasonable alert/notification rate limits to avoid Telegram spam.

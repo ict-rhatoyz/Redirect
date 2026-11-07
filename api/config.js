@@ -1,8 +1,12 @@
-// Safe-to-publish configuration: the Turnstile site key is public.
+import { publicConfiguration } from '../lib/verification.js';
+
 export function GET() {
-  const siteKey = process.env.TURNSTILE_SITE_KEY;
-  if (!siteKey || siteKey.startsWith('replace_')) {
-    return Response.json({ error: 'Turnstile is not configured.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  const config = publicConfiguration(process.env);
+  if (!config) {
+    return Response.json({ error: 'Destination is not configured.' }, {
+      status: 503,
+      headers: { 'Cache-Control': 'no-store' },
+    });
   }
-  return Response.json({ siteKey }, { headers: { 'Cache-Control': 'no-store' } });
+  return Response.json(config, { headers: { 'Cache-Control': 'no-store' } });
 }

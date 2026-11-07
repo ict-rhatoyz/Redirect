@@ -1,12 +1,8 @@
 {
-  "name": "turnstile-vercel-telegram-auto",
-  "version": "1.0.0",
+  "name": "visitor-telegram-redirect-vercel",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "scripts": {
-    "test": "node --test"
-  },
-  "engines": {
-    "node": ">=20"
-  }
+  "scripts": { "test": "node --test" },
+  "engines": { "node": ">=20" }
 }

