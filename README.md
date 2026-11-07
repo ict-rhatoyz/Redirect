@@ -4,14 +4,14 @@ Vercel-ready static HTML and plain JavaScript functions, **no React/TSX, no npm 
 
 ## Behavior
 
-1. A visitor opens `GATE_ORIGIN`; the polished verification page loads Cloudflare Turnstile.
+1. A visitor opens the deployed Vercel verification page; the polished verification page loads Cloudflare Turnstile.
 2. On successful challenge, the frontend submits the token to `/api/verify`.
-3. The backend validates the token with Cloudflare **Siteverify** (checks both `success` and the configured hostname).
+3. The backend validates the token with Cloudflare **Siteverify** (checks both `success` and the hostname inferred from the request).
 4. After approval, the server reads available IP/approximate geo from **Vercel-provided request headers** plus limited browser metadata. The page **discloses this automatic transmission**.
 5. The server sends the structured HTML notification to Telegram, then returns a fixed destination URL.
 6. The browser displays the success/loading animation for ~2.3 seconds and navigates to `DEST_URL`.
 
-No phone-number form, device GPS, visitor contact details, or `TICKET_SECRET` is used. Turnstile is anti-bot protection, **not proof of human identity**.
+No phone-number form, device GPS, visitor contact details, `GATE_ORIGIN`, or `TICKET_SECRET` is used. Turnstile is anti-bot protection, **not proof of human identity**.
 
 ## Files
 
@@ -30,7 +30,6 @@ package.json           JS ES-module declaration
 1. Unzip this project and upload the **contents** to a GitHub repository, or deploy using the Vercel CLI from this folder (`npx vercel` then `npx vercel --prod`).
 2. Import the repository into Vercel. Select **Framework Preset: Other**; no framework build is needed. Use the checked-in `vercel.json` (static folder: `public`, functions: root `api/`).
 3. In Vercel **Project → Settings → Environment Variables**, add:
-   - `GATE_ORIGIN`: full verification site origin (e.g. `https://my-gate.vercel.app` or `https://verify.example.com`), no trailing slash or path.
    - `DEST_URL`: the full **HTTPS** destination URL (e.g. `https://my-company.com/welcome`).
    - `TURNSTILE_SITE_KEY`: Cloudflare widget's public site key.
    - `TURNSTILE_SECRET`: Cloudflare widget's private secret.
@@ -40,7 +39,7 @@ package.json           JS ES-module declaration
 5. Start a conversation with the bot in Telegram or invite it to your group and give it appropriate posting rights.
 6. Visit your verification site and complete a challenge. Verify that a Telegram notification is received and the destination opens.
 
-**Caution:** Changing `GATE_ORIGIN` requires updating the Cloudflare widget's allowed hostname and redeploying. Preview deployments on random `*.vercel.app` hostnames are not automatically allowed; use the configured production hostname for testing.
+**Caution:** Add each hostname you use to Cloudflare Turnstile's allowed hostnames. Preview deployments on random `*.vercel.app` hostnames are not automatically allowed; the hostname is detected automatically but must still be permitted by Turnstile.
 
 ## Is `TICKET_SECRET` needed?
 
@@ -60,8 +59,8 @@ Vercel may not provide geo information when testing locally; `Unavailable` is ex
 
 ## Security / privacy
 
-- Cloudflare Turnstile tokens are verified on the **server**, are single-use, and expire. `result.hostname` must equal the configured gate hostname.
-- Requests must originate from the configured gate origin, the destination is fixed in server config, and bot credentials are stored only in Vercel environment variables.
+- Cloudflare Turnstile tokens are verified on the **server**, are single-use, and expire. `result.hostname` must equal the hostname of the incoming request.
+- Browser requests must originate from the same verification-site origin, the destination is fixed in server config, and bot credentials are stored only in Vercel environment variables.
 - Telegram text values are HTML-escaped. Requests and responses are not intentionally cached.
 - If Telegram delivery fails, the page offers the visitor a fresh verification attempt rather than claiming a notification was sent.
 - The gate page prominently discloses metadata sharing. Ensure your own privacy notice, retention policy, and lawful basis satisfy applicable law, especially if sending IP addresses to Telegram/third parties. No phone or GPS is collected.
