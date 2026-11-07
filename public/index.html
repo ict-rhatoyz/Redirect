@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Secure access · Verification</title>
+  <style>
+    :root { color-scheme: dark; --text: #f6f4ff; --sub: #b6aed1; --line: rgba(184,161,255,.18); --purple: #a28aff; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; min-height:100%; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    body { color:var(--text); background:#0a0814; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:32px 20px;
+      background-image:radial-gradient(ellipse at 18% 16%,rgba(103,65,206,.28),transparent 37%),radial-gradient(ellipse at 83% 88%,rgba(70,49,155,.22),transparent 40%);
+    }
+    body::before {content:""; pointer-events:none; position:fixed; inset:0; background:linear-gradient(90deg,transparent 97%,rgba(255,255,255,.018) 98%),linear-gradient(0deg,transparent 97%,rgba(255,255,255,.018) 98%); background-size:44px 44px; mask-image:linear-gradient(to bottom,transparent,#000 60%,transparent); }
+    .shell { width:min(100%,560px); z-index:1; }
+    .top { display:flex; align-items:center; gap:12px; margin-bottom:24px; color:#e7e2ff; font-weight:700; letter-spacing:.02em; }
+    .icon { width:42px; height:42px; display:grid; place-items:center; border-radius:14px; background:linear-gradient(145deg,#ab93ff,#6b4bcd); box-shadow:0 8px 30px rgba(127,83,243,.27); }
+    .card { border:1px solid var(--line); background:linear-gradient(145deg,rgba(35,27,67,.92),rgba(18,14,38,.94)); border-radius:29px; padding:clamp(25px,6vw,46px); box-shadow:0 30px 80px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.05); backdrop-filter:blur(16px); }
+    .badge { display:inline-flex; align-items:center; gap:8px; border:1px solid rgba(180,150,250,.25); padding:8px 12px; border-radius:25px; background:rgba(131,99,203,.1); color:#c7b5ff; font-size:12px; font-weight:750; letter-spacing:.07em; text-transform:uppercase; }
+    .badge i { height:7px; width:7px; border-radius:50%; background:#83e1bb; box-shadow:0 0 14px rgba(131,225,187,.8); }
+    h1 { font-size:clamp(28px,6vw,39px); letter-spacing:-.052em; line-height:1.13; margin:23px 0 14px; }
+    .lead { line-height:1.75; font-size:15px; color:var(--sub); margin:0 0 25px; }
+    .step { display:flex; align-items:flex-start; gap:12px; font-size:14px; color:#e1dbf6; border:1px solid var(--line); border-radius:15px; padding:15px; background:rgba(8,8,24,.38); margin-bottom:20px; }
+    .step-icon { display:grid; place-items:center; width:25px; height:25px; border-radius:7px; background:rgba(133,103,225,.25); color:#c4acff; flex:none; font-weight:700; }
+    #widget { display:flex; justify-content:center; min-height:65px; align-items:center; }
+    #loading { display:none; align-items:center; gap:10px; justify-content:center; min-height:65px; color:#d5c7ff; }
+    #loading.show {display:flex;}
+    .spinner { width:22px; height:22px; border:2px solid rgba(200,179,255,.16); border-top-color:#af92ff; border-radius:50%; animation:spin .85s linear infinite; }
+    @keyframes spin { to {transform:rotate(360deg)} }
+    #status { min-height:42px; margin:9px 0 0; text-align:center; color:#bdb2d6; font-size:13px; line-height:1.6; }
+    #status.error {color:#ffb6c1;}
+    .track {overflow:hidden; height:3px; border-radius:4px; margin:5px 0 0; background:rgba(169,143,235,.12); }
+    .bar {height:100%; width:0; background:linear-gradient(90deg,#8c6bf9,#d7c9ff); border-radius:4px; transition:width 2.4s cubic-bezier(.15,.85,.26,1);}
+    .bar.done {width:100%;}
+    .privacy {color:#a99fc6; font-size:11.5px; line-height:1.65; margin:22px 0 0; padding-top:18px; border-top:1px solid var(--line); }
+    .footer {display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; color:#746a96; padding:16px 4px 0; font-size:11px;}
+    .retry {border:1px solid rgba(167,135,243,.35); background:#362958; color:#fff; padding:8px 15px; border-radius:10px; margin:12px auto; cursor:pointer; display:none; font:inherit;}
+    .retry.show {display:block;}
+    @media (prefers-reduced-motion: reduce) { .spinner { animation:none } .bar { transition:none } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="top"><div class="icon" aria-hidden="true"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 20 6v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4Z"/><path d="m9 12 2 2 4-4"/></svg></div><span>SECURE ACCESS</span></header>
+    <section class="card" aria-labelledby="title">
+      <div class="badge"><i></i> Protection is active</div>
+      <h1 id="title">One quick check.<br/>Then you're in.</h1>
+      <p class="lead">We're checking that this connection is genuine. Complete the security challenge below to continue to the website.</p>
+      <div class="step"><div class="step-icon">01</div><div>Complete the Cloudflare verification. Once approved, you'll be redirected automatically.</div></div>
+      <div id="widget" aria-label="Security verification"></div>
+      <div id="loading" aria-live="polite"><div class="spinner" aria-hidden="true"></div><span>Checking your access…</span></div>
+      <p id="status" role="status" aria-live="polite">Loading secure verification…</p>
+      <button id="retry" class="retry" type="button">Try verification again</button>
+      <div class="track" aria-hidden="true"><div class="bar" id="bar"></div></div>
+      <p class="privacy"><b>Privacy notice:</b> After successful verification, the website operator receives a Telegram notification with your public IP address, approximate IP-based location, browser/device information, language, time zone, and network connection estimate (where available). No phone number, precise GPS location, or contacts are accessed. If you don't wish to share this information, close the page rather than completing the check.</p>
+    </section>
+    <footer class="footer"><span>Protected using Cloudflare Turnstile</span><span>Encrypted verification &middot; No account required</span></footer>
+  </main>
+  <script>
+    (() => {
+      'use strict';
+      const status = document.getElementById('status');
+      const widget = document.getElementById('widget');
+      const loading = document.getElementById('loading');
+      const retry = document.getElementById('retry');
+      const bar = document.getElementById('bar');
+      let widgetId = null;
+      let verifying = false;
+      let completed = false;
+      let redirectTimer;
+
+      function showError(message) {
+        verifying = false;
+        widget.style.display = 'flex';
+        loading.classList.remove('show');
+        status.textContent = message;
+        status.classList.add('error');
+        retry.classList.add('show');
+      }
+      function reset() {
+        clearTimeout(redirectTimer);
+        completed = false;
+        verifying = false;
+        retry.classList.remove('show');
+        status.classList.remove('error');
+        bar.classList.remove('done');
+        loading.classList.remove('show');
+        widget.style.display = 'flex';
+        status.textContent = 'Complete the challenge to continue.';
+        if (typeof window.turnstile?.reset === 'function' && widgetId !== null) window.turnstile.reset(widgetId);
+      }
+      retry.addEventListener('click', reset);
+
+      async function onApproved(token) {
+        if (verifying || completed) return;
+        verifying = true;
+        retry.classList.remove('show');
+        status.classList.remove('error');
+        widget.style.display = 'none';
+        loading.classList.add('show');
+        status.textContent = 'Finishing secure verification…';
+        try {
+          const response = await fetch('/api/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store',
+            body: JSON.stringify({
+              token,
+              language: navigator.language || '',
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+              connection: navigator.connection?.effectiveType || '',
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok || !result.redirect) throw new Error(result.error || 'Verification could not be completed.');
+          verifying = false;
+          completed = true;
+          bar.classList.add('done');
+          loading.querySelector('span').textContent = 'Verified. Redirecting securely…';
+          status.textContent = 'Access approved. Taking you to the website.';
+          redirectTimer = setTimeout(() => { window.location.assign(result.redirect); }, 2300);
+        } catch (err) {
+          showError(err?.message || 'Could not complete verification. Please retry.');
+        }
+      }
+
+      async function start() {
+        try {
+          const configResponse = await fetch('/api/config', { cache: 'no-store' });
+          const config = await configResponse.json();
+          if (!configResponse.ok || !config.siteKey) throw new Error(config.error || 'This verification page is not configured.');
+          const script = document.createElement('script');
+          script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+          script.async = true;
+          script.onload = () => {
+            if (!window.turnstile) return showError('Unable to load verification.');
+            widgetId = window.turnstile.render('#widget', {
+              sitekey: config.siteKey,
+              theme: 'dark',
+              appearance: 'always',
+              callback: onApproved,
+              'error-callback': () => showError('The security check failed to load. Please retry.'),
+              'expired-callback': () => showError('This challenge expired. Please retry.'),
+            });
+            status.textContent = 'Complete the challenge to continue.';
+          };
+          script.onerror = () => showError('Cloudflare could not load. Please retry.');
+          document.head.appendChild(script);
+        } catch (err) { showError(err?.message || 'Verification cannot be loaded.'); }
+      }
+      start();
+    })();
+  </script>
+</body>
+</html>
